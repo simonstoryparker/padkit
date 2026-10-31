@@ -1,6 +1,6 @@
 {
   "name": "@simonstoryparker/padkit",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "private": true,
   "bin": {
@@ -23,5 +23,11 @@
   "engines": {
     "node": ">=20"
   },
-  "types": "./packages/sdk/index.d.ts"
+  "types": "./packages/sdk/index.d.ts",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/simonstoryparker/padkit.git"
+  },
+  "description": "Controller toolkit with guided browser setup and a small typed SDK"
 }

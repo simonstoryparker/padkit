@@ -7,9 +7,10 @@ import { browsers, discoverBrowsers, profiles } from './browsers.js';
 import { select, validatedSite } from './prompts.js';
 import { assistInstall } from './install.js';
 import { bundleContentScripts } from './bundle.js';
+import { stateDirectory } from './state.js';
+import { installNative } from './native.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const stateDir = process.env.PADKIT_HOME || path.join(root, '.local');
-const configFile = path.join(stateDir, 'config.json');
+let stateDir, configFile;
 const args = process.argv.slice(2);
 const command = args.shift() || 'help';
 function option(name, fallback) { const i = args.indexOf('--' + name); return i < 0 ? fallback : args[i + 1]; }
@@ -39,8 +40,11 @@ function instructions(target, folder, existing) {
  console.log(`\n${existing ? 'Updated' : 'Prepared'} Padkit for ${target.browser} / ${target.profile} (${target.sites.length} sites):\n${folder}\n\nOne extension handles every enabled site in this profile.\n${existing ? 'If Padkit is already installed, click Reload on its existing card, then refresh your site. No new extension is needed.' : 'Open chrome://extensions in this profile, enable Developer mode, choose Load unpacked, and select the folder above.'}\nIf this is your first install, use Load unpacked once. The older PowerA extension shares this ID; keep only one enabled.`);
 }
 async function main() {
- if (command === 'help' || command === '--help') { console.log('padkit setup [--browser NAME] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera] [--no-open | --install]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and generated extensions stay in .local (or PADKIT_HOME).'); return; }
+ if (command === 'native-install') { installNative(root); return; }
+ if (command === 'help' || command === '--help') { console.log('padkit setup [--browser NAME] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera] [--no-open | --install]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and extensions stay in ~/Library/Application Support/Padkit (or PADKIT_HOME).\npadkit native-install installs the optional PowerA backend.'); return; }
  if (command === 'browsers') { for (const b of discoverBrowsers()) console.log(`${b.app} (${b.id})${b.supported ? '' : ' — extension not supported'}`, b.supported ? profiles(b.id).map(p => `${p.name} (${p.directory})`).join(', ') : ''); return; }
+ stateDir = stateDirectory(root);
+ configFile = path.join(stateDir, 'config.json');
  const config = readConfig();
  if (command === 'status') { console.log(JSON.stringify(config, null, 2)); return; }
  if (command === 'doctor') {
@@ -83,6 +87,7 @@ async function main() {
      if (!['gamepad', 'navigation'].includes(target.preset)) throw new Error('Choose gamepad or navigation.');
      target.powera = args.includes('--powera') || (!args.includes('--no-powera') && (interactive ? await select('PowerA USB bridge', [{ value: true, label: 'Use existing bridge — PowerA FUSION Pro 2' }, { value: false, label: 'Off — use browser-recognized controllers' }], target.powera) : target.powera));
    }
+   if (command === 'setup' && target.powera && !process.env.PADKIT_HOME) installNative(root);
    const value = command === 'setup' ? (interactive ? await validatedSite(siteOrigin, option('site')) : option('site', '')) : args[0];
    if (value) { const site = siteOrigin(value); target.sites = command === 'remove' ? target.sites.filter(s => s !== site) : [...new Set([...target.sites, site])]; }
    else if (command !== 'setup') throw new Error('Provide a site URL.');

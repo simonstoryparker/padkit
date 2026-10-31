@@ -1,0 +1,15 @@
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+        env:
+          PADKIT_HOME: ${{ runner.temp }}/padkit
+      - run: sh native/build.sh
+      - run: python3 native/tests/test-native.py

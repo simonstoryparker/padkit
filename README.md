@@ -1,116 +1,77 @@
 # Padkit
 
-A local controller toolkit: browser extension, setup CLI, shared input core and embeddable SDK. Early development release; nothing is published to npm.
+Controller support for existing websites and your own web applications. Includes a guided CLI, Chromium extension, small JavaScript/TypeScript SDK, and an optional macOS USB bridge for the PowerA FUSION Pro 2.
 
-```mermaid
-flowchart LR
-    Standard[Standard controllers] --> API[Browser Gamepad API]
-    PowerA[PowerA USB bridge] --> Extension[Extension]
-    Extension --> API
-    API --> SDK[App SDK]
-    API --> Navigation[Optional site navigation]
-    CLI[CLI setup] --> Extension
-```
-
-## Test setup
-
-Requires Node 20+; browser/profile discovery currently targets macOS. No npm install is required.
+## Install
 
 ```sh
-node packages/cli/index.js browsers
-node packages/cli/index.js setup
-node packages/cli/index.js doctor
+brew install simonstoryparker/tap/padkit
+padkit setup
 ```
 
-Interactive setup uses ↑/↓ and Enter for browser, profile, controls and bridge selection. Profiles display their friendly names. Invalid site input stays in the wizard and asks again; bare domains such as `frsim.com` become `https://frsim.com`. Explicit HTTP URLs are preserved for local development.
+Setup uses arrow-key menus to select an installed browser, profile, controls and site. Domains such as `frsim.com` are accepted. Add the actual game address too, for example `rebuilt.frsim.com`: sites match exact origins.
 
-Browser discovery scans system and user Applications folders (including nested folders), using installed app bundles rather than leftover profile data. The picker includes installed, supported Chromium browsers only. Detected browsers without extension support, such as Safari and Firefox, are reported separately. Chrome variants, Arc, Dia, Brave, Edge, Vivaldi, Chromium and Opera are recognized; actual extension/native-host compatibility still requires testing per browser. Open a browser once if it has no discoverable profiles. Noninteractive flags remain available.
-
-For the existing PowerA and Arc setup, an explicit example is:
+Setup opens the extensions page and copies the extension folder path. Enable Developer mode, choose **Load unpacked**, press **⌘⇧G**, paste, then select the folder. There is **one extension per browser profile**, covering all enabled sites. After changing sites, Reload the existing extension and refresh the page.
 
 ```sh
-node packages/cli/index.js setup --browser arc --profile Default --site https://crescendo.firstroboticsim.com --preset gamepad --powera
+padkit add rebuilt.frsim.com --browser dia --profile 'Profile 4'
+padkit remove example.com --browser dia --profile 'Profile 4'
+padkit browsers
+padkit status
+padkit doctor
+brew upgrade padkit
 ```
 
-Interactive setup copies the generated extension folder path, reveals it in Finder, and opens the selected browser with the requested profile and extensions page. You enable Developer mode and use **Load unpacked** once. Setup does not automate clicks or request Accessibility access. The extensions URL is delivered through macOS URL opening, including when the browser is running. Profile arguments only apply on launch: if the browser is already running, select the intended profile yourself. If the browser refuses the internal URL, enter `chrome://extensions/` in its address bar.
+Settings and generated extensions live in `~/Library/Application Support/Padkit`. `PADKIT_HOME` overrides this location. Setup migrates older checkout-local `.local` data when no stable configuration exists, retaining the old files. After migration, load the extension from the new folder once. After a Homebrew upgrade, rerun setup to update the generated bundle, then Reload it.
 
-**One extension per browser profile covers all configured sites.** Repeating setup or adding/removing sites updates the same folder and extension ID. Reload the existing Padkit card after changes; you do not install a separate extension for each site. Each browser/profile has its own configuration.
+`--no-open` prepares files without opening apps. Noninteractive setup only opens apps when passed `--install`. Setup uses no Accessibility automation. A running browser may ignore profile-launch arguments; verify the selected profile yourself. If the extensions page does not open, enter `chrome://extensions/` in its address bar.
 
-Setup waits up to two minutes for an authenticated, one-use confirmation from the generated extension. A green connection message confirms that this configuration loaded, not which browser profile loaded it or that controller hardware works. Refresh your target site afterward. For an existing installation you may need to click Reload.
+## Controller support
 
-Use `--no-open` to prepare files only. Noninteractive commands remain preparation-only unless you pass `--install`. Installation confirmation uses a temporary listener bound to `127.0.0.1`, a random token and the extension origin. The generated bundle has loopback host permission for this check; the listener closes after confirmation, cancellation or timeout. No network listener runs during normal controller use. The receipt protocol is tested; browser behavior still needs a live test in each browser.
+- **Gamepad preset:** use the website's own controls.
+- **Navigation preset:** D-pad scrolls/moves focus; the south face button activates the focused element.
+- **Standard controllers:** use the browser Gamepad API; compatibility depends on the controller, OS and browser.
+- **PowerA FUSION Pro 2 (`20d6:4001`):** select the USB bridge in setup. Homebrew includes its binaries; setup installs a user launch agent and native-messaging registration. Existing shared PowerA services are reused. No administrator privileges are required. The reader runs on demand. Close competing controller readers if USB access fails. Steam/game configuration is not changed.
 
-This release preserves the old PowerA extension's public key/ID for compatibility with its native host. Remove the old extension from that profile before loading Padkit; never keep both active. Its old extension folder and shared USB service are preserved. To roll back, remove Padkit and load the previous extension folder again.
-
-Use `--profile 'Profile 2'` for another profile. Run `browsers` to see directory names. Chrome, Arc and Dia use the same extension bundle, but browser behavior and native-host discovery still require manual verification. Dia discovery was observed locally; end-to-end Dia input is not yet verified.
-
-```sh
-node packages/cli/index.js add https://reefscape.firstroboticsim.com --browser arc
-node packages/cli/index.js remove https://reefscape.firstroboticsim.com --browser arc
-node packages/cli/index.js status
-node packages/cli/index.js uninstall --browser arc
-```
-
-After changes, Reload Padkit on the extensions page and refresh affected tabs. Exact origins are enabled, including scheme and port; adding one subdomain does not enable its siblings. The preset applies to all configured sites in that browser/profile. Configurations are stored in `.local/`, excluded from Git. Set `PADKIT_HOME` to override this directory.
-
-## Presets and controllers
-
-- `gamepad`: preserves the website's own gamepad behavior; optionally exposes the PowerA bridge as a standard gamepad. Recommended for simulators.
-- `navigation`: standard-controller D-pad up/down scrolls, left/right moves focus, and the south face button activates the focused element. Text fields suppress these navigation actions. Only the visible, focused document acts on input.
-
-Standard controllers use the browser Gamepad API, with no vendor-name filtering. Actual device support depends on the OS and browser. Nonstandard devices can be remapped through SDK calibration; automatic device identification and a calibration UI are not included. Vibration capability is reported, but rumble output is not implemented.
-
-The optional native backend retains the previously working PowerA FUSION Pro 2 USB reader (`20d6:4001`). `--powera` uses the existing shared reader and `local.powera.browser` host registration. It does not install that service on a fresh machine. `doctor` checks file presence, not live hardware. Source for the native backend is preserved under `native/src`; no app/game launch modifications are included.
+Arc and Dia have been used with the PowerA bridge locally. Other discovered Chromium browsers need end-to-end testing. Safari/Firefox extension support, native application mapping, rumble output, and automatic controller calibration are not included.
 
 ## Developer SDK
 
-For an app that already handles controllers, the complete integration is:
+The SDK does not require the CLI for controllers already recognized by the browser. Install the release from GitHub (not published to npm):
+
+```sh
+npm install github:simonstoryparker/padkit#v0.5.0
+```
+
+Already handling controller input? Declare ownership so the extension yields:
 
 ```js
 import { claimControllerSupport } from '@simonstoryparker/padkit';
-const release = claimControllerSupport();
-// Keep your existing controller implementation. Call release() when it unmounts.
+const cleanup = claimControllerSupport();
+// Keep your existing controller implementation; call cleanup() on unmount.
 ```
 
-This declaration does not poll, remap, or intercept input. TypeScript declarations are included at both package entrypoints. See `examples/existing-app.html` for a runnable integration retaining the browser Gamepad API, and `examples/integration.ts` for typed examples of both paths.
-
-
-Import from `packages/sdk/index.js`, or install this private repository as a Git dependency. The package exports the SDK at its root and normalization helpers at `/core`. The SDK uses browser globals only when initialized.
+For a new integration:
 
 ```js
 import { createController } from '@simonstoryparker/padkit';
-const controller = createController({
-  bindings: { confirm: 0, pause: 9 },
-  onAction({ action, phase }) { console.log(action, phase); },
-  onFrame(pads) { /* normalized analog and digital states */ },
-  calibration: {
-    'your device id': { threshold: 0.12, axes: [0, 1, 2, 3], buttons: [0, 1, 2, 3] }
-  }
+const input = createController({
+  onFrame(pads) { /* normalized axes/buttons; pads[i].raw is the native Gamepad */ },
+  bindings: { confirm: 0 }, // optional
+  onAction({ action, phase }) { /* press / release */ }
 });
-// Call on component unmount:
-controller.dispose();
+// On unmount:
+input.dispose();
 ```
 
-The SDK shares one polling loop per window. Repeated initialization with the same callback references and equivalent options shares a subscription; each returned handle has independent, idempotent cleanup. Different callbacks subscribe independently. Keep callbacks stable if initializing repeatedly. Action mappings are optional: without `bindings`, only input frames are delivered. `pads[i].raw` exposes the original browser Gamepad. Disconnect, loss of focus, hidden pages and disposal release active actions immediately. Page restoration resumes polling automatically. Nonstandard input mapping is opt-in; configure the full button/axis index list when remapping.
+One shared polling loop handles focus loss, disconnects and page lifecycle. Identical callback references/options share a reference-counted subscription; different callbacks subscribe independently. Types are included. See [SDK examples](examples/integration.ts) and [developer details](docs/development.md).
 
-An app that already owns its input loop can call `claimControllerSupport()` and retain its returned cleanup function. Use `{ source: 'native' }` only when the app supplies its own native controller reader. Normal SDK ownership suppresses extension navigation while preserving the optional bridge as an input source; native ownership suppresses the bridge too. Reference-counted claims handle overlapping component lifetimes. The DOM marker is a cooperation mechanism, not a security boundary or detector for unrelated third-party controller libraries.
+## Troubleshooting
 
-## SDK and handoff test
+- Extension shows an old error: Reload Padkit and refresh the site; clear the old error log.
+- No controller in a game: confirm the game’s exact subdomain is enabled and run `padkit doctor`.
+- PowerA service missing: run `padkit native-install` (source users need Apple Command Line Tools).
+- Folder picker: **⌘⇧G**, then paste the path copied by setup.
+- Setup confirmation times out: installation can still be completed manually. Confirmation checks extension loading, not physical input or browser-profile identity.
 
-From this repository:
-
-```sh
-python3 -m http.server 8765 --bind 127.0.0.1
-```
-
-Open `http://127.0.0.1:8765/examples/sdk.html`. Enable that exact origin with the CLI to test simultaneous extension/SDK use. The extension popup should report **Handled by this app**. Pressing **Release SDK ownership** hands navigation back to the extension when using its navigation preset.
-
-## Verification
-
-```sh
-npm test
-sh native/build.sh
-python3 native/tests/test-native.py
-```
-
-Automated checks cover action edges/disconnect, calibration, SDK claim lifecycle, duplicate subscriptions, focus/visibility/page lifecycle, profile-scoped setup/update/removal, permission URL validation, virtual gamepad coexistence, malformed frames and native message framing/origin rejection. Physical controller behavior and browser installation need a manual test. Simulation Studio has not been modified.
+See [installation and removal](docs/installation.md). Licensed under [MIT](LICENSE).
