@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8"><title>Existing controller app + Padkit</title>
+<h1>Existing controller implementation</h1>
+<p>Padkit only declares ownership here. This example reads navigator.getGamepads directly.</p>
+<pre id="output">Connect a controller and press a button.</pre>
+<script type="module">
+import { claimControllerSupport } from '../packages/sdk/index.js';
+const release = claimControllerSupport();
+let frame;
+function render() {
+  const pads = Array.from(navigator.getGamepads()).filter(Boolean);
+  document.querySelector('#output').textContent = pads.map(p => `${p.id}: ${p.axes.join(', ')}`).join('\n') || 'No controller detected';
+  frame = requestAnimationFrame(render);
+}
+render();
+window.addEventListener('pagehide', () => cancelAnimationFrame(frame));
+window.addEventListener('pageshow', event => { if (event.persisted) render(); });
+// Call release() when your app/component unmounts. Padkit manages pagehide/pageshow itself.
+</script>

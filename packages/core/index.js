@@ -5,7 +5,7 @@ export function deadzone(value, threshold = 0.15) {
 }
 export function normalize(pad, { threshold = 0.15, buttons, axes } = {}) {
   if (!pad?.connected) return null;
-  return { id: pad.id, index: pad.index, standard: pad.mapping === 'standard',
+  return { raw: pad, id: pad.id, index: pad.index, standard: pad.mapping === 'standard',
     axes: (axes ?? Array.from(pad.axes, (_, i) => i)).map(i => deadzone(pad.axes[i], threshold)),
     buttons: (buttons ?? Array.from(pad.buttons, (_, i) => i)).map(i => {
       const b = pad.buttons[i]; return Math.max(0, Math.min(1, typeof b === 'number' ? b : b?.value ?? 0));

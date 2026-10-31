@@ -54,6 +54,17 @@ The optional native backend retains the previously working PowerA FUSION Pro 2 U
 
 ## Developer SDK
 
+For an app that already handles controllers, the complete integration is:
+
+```js
+import { claimControllerSupport } from '@simonstoryparker/padkit';
+const release = claimControllerSupport();
+// Keep your existing controller implementation. Call release() when it unmounts.
+```
+
+This declaration does not poll, remap, or intercept input. TypeScript declarations are included at both package entrypoints. See `examples/existing-app.html` for a runnable integration retaining the browser Gamepad API, and `examples/integration.ts` for typed examples of both paths.
+
+
 Import from `packages/sdk/index.js`, or install this private repository as a Git dependency. The package exports the SDK at its root and normalization helpers at `/core`. The SDK uses browser globals only when initialized.
 
 ```js
@@ -70,7 +81,7 @@ const controller = createController({
 controller.dispose();
 ```
 
-Initialize after the document root exists. One action runtime is allowed per window; a second initialization throws instead of silently creating duplicate callbacks. Buttons emit press/release edges. Disconnect, loss of focus and disposal release active actions. Nonstandard input mapping is opt-in; configure the full button/axis index list when remapping.
+The SDK shares one polling loop per window. Repeated initialization with the same callback references and equivalent options shares a subscription; each returned handle has independent, idempotent cleanup. Different callbacks subscribe independently. Keep callbacks stable if initializing repeatedly. Action mappings are optional: without `bindings`, only input frames are delivered. `pads[i].raw` exposes the original browser Gamepad. Disconnect, loss of focus, hidden pages and disposal release active actions immediately. Page restoration resumes polling automatically. Nonstandard input mapping is opt-in; configure the full button/axis index list when remapping.
 
 An app that already owns its input loop can call `claimControllerSupport()` and retain its returned cleanup function. Use `{ source: 'native' }` only when the app supplies its own native controller reader. Normal SDK ownership suppresses extension navigation while preserving the optional bridge as an input source; native ownership suppresses the bridge too. Reference-counted claims handle overlapping component lifetimes. The DOM marker is a cooperation mechanism, not a security boundary or detector for unrelated third-party controller libraries.
 
@@ -92,4 +103,4 @@ sh native/build.sh
 python3 native/tests/test-native.py
 ```
 
-Automated checks cover action edges/disconnect, calibration, SDK claim lifecycle, duplicate initialization, profile-scoped setup/update/removal, permission URL validation, virtual gamepad coexistence, malformed frames and native message framing/origin rejection. Physical controller behavior and browser installation need a manual test. Simulation Studio has not been modified.
+Automated checks cover action edges/disconnect, calibration, SDK claim lifecycle, duplicate subscriptions, focus/visibility/page lifecycle, profile-scoped setup/update/removal, permission URL validation, virtual gamepad coexistence, malformed frames and native message framing/origin rejection. Physical controller behavior and browser installation need a manual test. Simulation Studio has not been modified.
