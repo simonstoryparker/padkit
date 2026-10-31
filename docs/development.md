@@ -13,7 +13,7 @@ The `@simonstoryparker/padkit` package provides JavaScript and TypeScript APIs t
 Install the package directly from GitHub:
 
 ```sh
-npm install github:simonstoryparker/padkit#v0.5.0
+npm install github:simonstoryparker/padkit#v0.5.1
 ```
 
 Node 20+ is required for build tooling, but the compiled SDK has zero external dependencies and runs in any modern browser.
@@ -196,6 +196,40 @@ export interface Calibration {
   axes?: number[];
   buttons?: number[];
 }
+```
+
+---
+
+## Native macOS SDK (`padkit.h` & `libpadkit.a`)
+
+For non-browser desktop applications (desktop simulators, native games, Rust/C/C++ apps), Padkit provides a native client library connecting directly to the on-demand PowerA bridge socket.
+
+### Headers & Linking
+
+Header: `native/include/padkit.h`  
+Static library: `native/build/libpadkit.a` (compiled via `sh native/build.sh`)
+
+```c
+#include <padkit.h>
+
+// Start background client thread (auto-connects to ~/Library/Application Support/PowerA Adapters/input.sock or $PADKIT_SOCKET)
+padkit_client_start();
+
+// Poll normalized state at your app's tick rate
+PadkitState state;
+if (padkit_client_snapshot(&state)) {
+    // state.connected is true
+    // Axes: [-1.0 .. 1.0] for sticks, [0.0 .. 1.0] for triggers
+    float lx = state.axes[PADKIT_AXIS_LX];
+    float ly = state.axes[PADKIT_AXIS_LY];
+
+    // Buttons: 0.0 or 1.0 matching W3C Gamepad API indices (0..16)
+    bool buttonA = state.buttons[PADKIT_BUTTON_A] > 0.5f;
+    bool dpadUp = state.buttons[PADKIT_BUTTON_DPAD_UP] > 0.5f;
+}
+
+// Stop client thread on application shutdown
+padkit_client_stop();
 ```
 
 ---

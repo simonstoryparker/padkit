@@ -17,7 +17,8 @@ struct Client {int fd; bool closed; dispatch_source_t source; Client *next;};
 static Client *clients;
 static USBReader *reader;
 static IONotificationPortRef notifications;
-static io_iterator_t matching_iterator;
+static io_iterator_t matching_iterators[2];
+static bool scanned;
 static io_object_t removal_notification;
 static PowerAFrame frame={.magic=POWERA_MAGIC,.version=1};
 static bool had_clients,exiting;
@@ -85,16 +86,20 @@ static void attached(void *unused,io_iterator_t iterator) {
         IOObjectRelease(service);
     }
 }
-static void scan(void) {
+static void scan_vid(int vid, int idx) {
     CFMutableDictionaryRef match=IOServiceMatching(kIOUSBDeviceClassName);
-    int vid=0x20d6,pid=0x4001;
-    CFNumberRef v=CFNumberCreate(NULL,kCFNumberIntType,&vid),p=CFNumberCreate(NULL,kCFNumberIntType,&pid);
-    CFDictionarySetValue(match,CFSTR(kUSBVendorID),v);CFDictionarySetValue(match,CFSTR(kUSBProductID),p);
-    CFRelease(v);CFRelease(p);
+    CFNumberRef v=CFNumberCreate(NULL,kCFNumberIntType,&vid);
+    CFDictionarySetValue(match,CFSTR(kUSBVendorID),v);CFRelease(v);
     IOReturn r=IOServiceAddMatchingNotification(notifications,kIOFirstMatchNotification,match,
-                                               attached,NULL,&matching_iterator);
-    if(r){fprintf(stderr,"Cannot watch USB: 0x%08x\n",(unsigned)r);quit();return;}
-    attached(NULL,matching_iterator);
+                                               attached,NULL,&matching_iterators[idx]);
+    if(r){fprintf(stderr,"Cannot watch USB VID 0x%04x: 0x%08x\n",vid,(unsigned)r);return;}
+    attached(NULL,matching_iterators[idx]);
+}
+static void scan(void) {
+    if(scanned)return;
+    scanned=true;
+    scan_vid(0x20d6,0);
+    scan_vid(0x24c6,1);
 }
 int main(int argc,char **argv) {@autoreleasepool{
     signal(SIGPIPE,SIG_IGN);
@@ -127,7 +132,7 @@ int main(int argc,char **argv) {@autoreleasepool{
             dispatch_source_set_event_handler(c->source,^{char byte;ssize_t n=recv(c->fd,&byte,1,0);if(n==0 || n>0 || (n<0 && errno!=EAGAIN && errno!=EINTR))close_client(c);});
             dispatch_source_set_cancel_handler(c->source,^{c->source=nil;free(c);});
             dispatch_resume(c->source);send_frame(c);
-            if(!matching_iterator)scan();
+            if(!scanned)scan();
         }
     });dispatch_resume(accepts);
     dispatch_source_t signal_source=dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL,SIGTERM,0,dispatch_get_main_queue());
@@ -135,7 +140,7 @@ int main(int argc,char **argv) {@autoreleasepool{
     CFRunLoopRun();
     exiting=true;usb_stop(reader);reader=NULL;
     if(removal_notification)IOObjectRelease(removal_notification);
-    if(matching_iterator)IOObjectRelease(matching_iterator);
+    for(int i=0;i<2;i++)if(matching_iterators[i])IOObjectRelease(matching_iterators[i]);
     IONotificationPortDestroy(notifications);
     dispatch_source_cancel(accepts);dispatch_source_cancel(signal_source);close(listener);
     if(manual_path)unlink(manual_path);

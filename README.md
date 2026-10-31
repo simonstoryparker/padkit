@@ -26,10 +26,12 @@ See [installation details](docs/installation.md) for manual loading, configurati
 
 ## Developer SDK
 
+### Web Applications (JS / TS)
+
 Install the package directly from GitHub:
 
 ```sh
-npm install github:simonstoryparker/padkit#v0.5.0
+npm install github:simonstoryparker/padkit#v0.5.1
 ```
 
 ```js
@@ -47,6 +49,24 @@ const controller = createController({
 // Clean up on unmount
 controller.dispose();
 cleanup();
+```
+
+### Native macOS Applications (C / C++ / Rust)
+
+Include `padkit.h` and link `libpadkit.a` (built with `sh native/build.sh`):
+
+```c
+#include <padkit.h>
+
+padkit_client_start();
+
+PadkitState state;
+if (padkit_client_snapshot(&state)) {
+    float lx = state.axes[PADKIT_AXIS_LX];
+    bool a_pressed = state.buttons[PADKIT_BUTTON_A] > 0.5f;
+}
+
+padkit_client_stop();
 ```
 
 See [SDK examples](examples/integration.ts) and [developer details](docs/development.md).
