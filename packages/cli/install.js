@@ -18,7 +18,9 @@ export async function installationReceipt({ timeout = 120000 } = {}) {
    close() { clearTimeout(timer); finish(false); server.close(); server.closeAllConnections(); } };
 }
 export function launchArguments(app, profile) {
- return ['-a', app, '--args', `--profile-directory=${profile}`, 'chrome://extensions/'];
+ // URLs before --args are delivered through LaunchServices even to a running app.
+ // Startup-only arguments are ignored by an already-running browser.
+ return ['-a', app, 'chrome://extensions/', '--args', `--profile-directory=${profile}`];
 }
 export async function assistInstall(target, folder, app, { run = spawnSync, log = console.log, timeout } = {}) {
  if (process.platform !== 'darwin') { log('Guided installation currently supports macOS. Load the printed folder manually.'); return; }
@@ -37,9 +39,9 @@ export async function assistInstall(target, folder, app, { run = spawnSync, log 
    log(copied.status === 0 ? '\n  ✓ Extension folder copied to clipboard.' : '\n  Clipboard unavailable; use the printed folder path.');
    run('/usr/bin/open', ['-R', folder], { encoding: 'utf8' });
    const opened = run('/usr/bin/open', launchArguments(app.location, target.profile), { encoding: 'utf8' });
-   if (opened.status !== 0) { log('Could not open the browser. Open its extensions page manually.'); }
+   if (opened.status !== 0) { log('Could not open the extensions page. In the selected browser profile, enter chrome://extensions/ in the address bar.'); }
    else {
-     log(`  Opening ${app.app}; requesting profile ${target.profile}.`);
+     log(`  Sent chrome://extensions/ to ${app.app}. If it was already running, select profile ${target.profile} in the browser.`);
 
    }
    log('  One Padkit extension handles all sites in this profile.\n  First install: enable Developer mode → Load unpacked → ⌘⇧G → ⌘V → Enter → Select.\n  For an existing Padkit install, click Reload. Check that you are in the selected profile.\n  Waiting up to two minutes for the extension to confirm it loaded… (Ctrl+C stops waiting)');

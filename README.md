@@ -32,7 +32,7 @@ For the existing PowerA and Arc setup, an explicit example is:
 node packages/cli/index.js setup --browser arc --profile Default --site https://crescendo.firstroboticsim.com --preset gamepad --powera
 ```
 
-Interactive setup copies the generated extension folder path, reveals it in Finder, and opens the selected browser with the requested profile and extensions page. You enable Developer mode and use **Load unpacked** once. Setup does not automate clicks or request Accessibility access. Check the profile shown by your browser: Chromium variants may handle profile launch arguments differently, especially when already running.
+Interactive setup copies the generated extension folder path, reveals it in Finder, and opens the selected browser with the requested profile and extensions page. You enable Developer mode and use **Load unpacked** once. Setup does not automate clicks or request Accessibility access. The extensions URL is delivered through macOS URL opening, including when the browser is running. Profile arguments only apply on launch: if the browser is already running, select the intended profile yourself. If the browser refuses the internal URL, enter `chrome://extensions/` in its address bar.
 
 **One extension per browser profile covers all configured sites.** Repeating setup or adding/removing sites updates the same folder and extension ID. Reload the existing Padkit card after changes; you do not install a separate extension for each site. Each browser/profile has its own configuration.
 
