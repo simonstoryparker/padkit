@@ -5,6 +5,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { browsers, discoverBrowsers, profiles } from './browsers.js';
 import { select, validatedSite } from './prompts.js';
+import { assistInstall } from './install.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const stateDir = process.env.PADKIT_HOME || path.join(root, '.local');
 const configFile = path.join(stateDir, 'config.json');
@@ -33,10 +34,10 @@ function generate(target) {
  return folder;
 }
 function instructions(target, folder) {
- console.log(`\nExtension prepared for ${target.browser} / ${target.profile}:\n${folder}\n\nIn that browser profile, open chrome://extensions, enable Developer mode, and choose Load unpacked. Select the folder above.\nFor updates, click Reload on Padkit and refresh the site.\nThis replaces the old PowerA extension in that profile (same extension ID); keep only one enabled.\nNo browser was launched or profile edited.`);
+ console.log(`\nExtension prepared for ${target.browser} / ${target.profile}:\n${folder}\n\nIn that browser profile, open chrome://extensions, enable Developer mode, and choose Load unpacked. Select the folder above.\nFor updates, click Reload on Padkit and refresh the site.\nThis replaces the old PowerA extension in that profile (same extension ID); keep only one enabled.\nSetup files are ready.`);
 }
 async function main() {
- if (command === 'help' || command === '--help') { console.log('padkit setup [--browser NAME] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and generated extensions stay in .local (or PADKIT_HOME).'); return; }
+ if (command === 'help' || command === '--help') { console.log('padkit setup [--browser NAME] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera] [--no-open | --install]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and generated extensions stay in .local (or PADKIT_HOME).'); return; }
  if (command === 'browsers') { for (const b of discoverBrowsers()) console.log(`${b.app} (${b.id})${b.supported ? '' : ' — extension not supported'}`, b.supported ? profiles(b.id).map(p => `${p.name} (${p.directory})`).join(', ') : ''); return; }
  const config = readConfig();
  if (command === 'status') { console.log(JSON.stringify(config, null, 2)); return; }
@@ -84,6 +85,11 @@ async function main() {
    else if (command !== 'setup') throw new Error('Provide a site URL.');
    config.targets[id] = target;
    const folder = generate(target); save(config); instructions(target, folder);
+   if (command === 'setup' && !args.includes('--no-open') && (interactive || args.includes('--install'))) {
+     const app = (installed.length ? installed : discoverBrowsers()).find(b => b.id === browser);
+     if (app) await assistInstall(target, folder, app);
+     else console.log('Browser application not found; follow the manual instructions above.');
+   }
    if (target.powera) console.log('PowerA requires the existing local.powera.browser native host and shared reader. Run doctor. Arc used Chrome’s host registry in the previous working setup; Dia must be verified.');
  }
 }

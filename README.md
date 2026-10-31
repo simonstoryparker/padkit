@@ -32,7 +32,11 @@ For the existing PowerA and Arc setup, an explicit example is:
 node packages/cli/index.js setup --browser arc --profile Default --site https://crescendo.firstroboticsim.com --preset gamepad --powera
 ```
 
-In the selected browser profile, open `chrome://extensions`, turn on Developer mode, choose **Load unpacked**, and select the folder printed by setup. Refresh the target site. The CLI prepares configuration; installing the unpacked extension is a manual browser step. It does not open browsers, modify profiles or silently install extensions.
+Interactive setup now copies the generated extension folder path, reveals it in Finder, and opens the selected browser with the requested profile and extensions page. It attempts Developer mode → Load unpacked → folder selection through macOS Accessibility. macOS may require granting the terminal Accessibility/Automation access; without it, the wizard prints the few remaining clicks. Browser UI differences may also require manual completion. Check the profile shown by your browser: Chromium variants may handle profile launch arguments differently, especially when already running.
+
+Setup waits up to two minutes for an authenticated, one-use confirmation from the generated extension. A green connection message confirms that this configuration loaded, not which browser profile loaded it or that controller hardware works. Refresh your target site afterward. For an existing installation you may need to click Reload.
+
+Use `--no-open` to prepare files only. Noninteractive commands remain preparation-only unless you pass `--install`. Installation confirmation uses a temporary listener bound to `127.0.0.1`, a random token and the extension origin. The generated bundle has loopback host permission for this check; the listener closes after confirmation, cancellation or timeout. No network listener runs during normal controller use. The UI click automation script is compiled and the receipt protocol is tested; complete automatic installation still needs a live test in each browser.
 
 This release preserves the old PowerA extension's public key/ID for compatibility with its native host. Remove the old extension from that profile before loading Padkit; never keep both active. Its old extension folder and shared USB service are preserved. To roll back, remove Padkit and load the previous extension folder again.
 

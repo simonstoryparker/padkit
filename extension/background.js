@@ -45,3 +45,13 @@ chrome.runtime.onConnect.addListener(port => {
     }
   });
 });
+
+// A generated one-use token lets the setup CLI confirm this bundle actually loaded.
+if (PADKIT_CONFIG.installReceipt) {
+  try {
+    const receipt = new URL(PADKIT_CONFIG.installReceipt);
+    if (receipt.protocol === 'http:' && receipt.hostname === '127.0.0.1' && /^\/[a-f0-9]{48}$/.test(receipt.pathname)) {
+      fetch(receipt.href, { method: 'POST', credentials: 'omit', referrerPolicy: 'no-referrer' }).catch(() => {});
+    }
+  } catch { /* Stale or malformed setup receipts never affect controller support. */ }
+}
