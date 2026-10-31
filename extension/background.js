@@ -1,5 +1,6 @@
 'use strict';
 importScripts('config.js');
+const PADKIT_CONFIG = globalThis.PADKIT_CONFIG;
 const clients = new Set();
 let native = null, latest = { type: 'state', connected: false }, retry = null;
 function allowed(sender) {

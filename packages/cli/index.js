@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { browsers, discoverBrowsers, profiles } from './browsers.js';
 import { select, validatedSite } from './prompts.js';
 import { assistInstall } from './install.js';
+import { bundleContentScripts } from './bundle.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const stateDir = process.env.PADKIT_HOME || path.join(root, '.local');
 const configFile = path.join(stateDir, 'config.json');
@@ -29,6 +30,7 @@ function generate(target) {
  const matches = target.sites.map(s => s + '/*');
  manifest.host_permissions = matches;
  manifest.content_scripts = matches.length ? manifest.content_scripts.map(s => ({ ...s, matches })) : [];
+ bundleContentScripts(folder, target, manifest);
  fs.writeFileSync(path.join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
  fs.writeFileSync(path.join(folder, 'config.js'), 'globalThis.PADKIT_CONFIG = ' + JSON.stringify(target) + ';\n');
  return folder;
