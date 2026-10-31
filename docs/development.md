@@ -13,7 +13,7 @@ const release = claimControllerSupport();
 This declaration does not poll, remap, or intercept input. TypeScript declarations are included at both package entrypoints. See `examples/existing-app.html` for a runnable integration retaining the browser Gamepad API, and `examples/integration.ts` for typed examples of both paths.
 
 
-Import from `packages/sdk/index.js`, or install this private repository as a Git dependency. The package exports the SDK at its root and normalization helpers at `/core`. The SDK uses browser globals only when initialized.
+Import from `packages/sdk/index.js`, or install a tagged release from GitHub as a Git dependency. The package exports the SDK at its root and normalization helpers at `/core`. The SDK uses browser globals only when initialized.
 
 ```js
 import { createController } from '@simonstoryparker/padkit';
