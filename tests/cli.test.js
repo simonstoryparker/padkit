@@ -47,3 +47,26 @@ test('browser discovery lists installed bundles only, including user Application
   assert.deepEqual(found.filter(b => b.supported).map(b => b.id), ['arc', 'dia']);
  } finally { rmSync(home, { recursive: true }); }
 });
+
+test('many sites reuse one extension folder and identity per profile', async () => {
+ const { readdirSync } = await import('node:fs');
+ const home = mkdtempSync(path.join(os.tmpdir(), 'padkit-single-'));
+ const cli = (...args) => {
+  const p = spawnSync(process.execPath, ['packages/cli/index.js', ...args], { env: { ...process.env, PADKIT_HOME: home }, encoding: 'utf8' });
+  assert.equal(p.status, 0, p.stderr); return p.stdout;
+ };
+ const readManifest = profile => JSON.parse(readFileSync(path.join(home, `dia-${profile}/extension/manifest.json`)));
+ try {
+  cli('setup', '--browser', 'dia', '--profile', 'Profile 4', '--site', 'frsim.com');
+  const original = readManifest('Profile 4');
+  const output = cli('setup', '--browser', 'dia', '--profile', 'Profile 4', '--site', 'example.com');
+  assert.match(output, /No new extension is needed/);
+  cli('add', 'another.example', '--browser', 'dia', '--profile', 'Profile 4');
+  assert.deepEqual(readManifest('Profile 4').host_permissions, ['https://frsim.com/*', 'https://example.com/*', 'https://another.example/*']);
+  assert.equal(readManifest('Profile 4').key, original.key);
+  assert.deepEqual(readdirSync(path.join(home, 'dia-Profile 4')), ['extension']);
+  cli('setup', '--browser', 'dia', '--profile', 'Default', '--site', 'other.example');
+  assert.deepEqual(readManifest('Default').host_permissions, ['https://other.example/*']);
+  assert.equal(readManifest('Profile 4').host_permissions.length, 3);
+ } finally { rmSync(home, { recursive: true }); }
+});

@@ -3,7 +3,6 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 export async function installationReceipt({ timeout = 120000 } = {}) {
  const token = randomBytes(24).toString('hex');
@@ -22,7 +21,7 @@ export function launchArguments(app, profile) {
  return ['-a', app, '--args', `--profile-directory=${profile}`, 'chrome://extensions/'];
 }
 export async function assistInstall(target, folder, app, { run = spawnSync, log = console.log, timeout } = {}) {
- if (process.platform !== 'darwin') { log('Automatic installation assistance currently supports macOS. Load the printed folder manually.'); return; }
+ if (process.platform !== 'darwin') { log('Guided installation currently supports macOS. Load the printed folder manually.'); return; }
  const receipt = await installationReceipt({ timeout });
  const configPath = path.join(folder, 'config.js');
  // One-use, loopback-only receipt. Never forwarded to the PowerA host.
@@ -41,12 +40,9 @@ export async function assistInstall(target, folder, app, { run = spawnSync, log 
    if (opened.status !== 0) { log('Could not open the browser. Open its extensions page manually.'); }
    else {
      log(`  Opening ${app.app}; requesting profile ${target.profile}.`);
-     const script = fileURLToPath(new URL('./install.applescript', import.meta.url));
-     const automated = run('/usr/bin/osascript', [script, app.app, folder], { encoding: 'utf8', timeout: 20000 });
-     if (automated.status === 0 && automated.stdout?.includes('submitted')) log('  ✓ Submitted the extension folder to the browser.');
-     else log('  Browser clicks need your help. If macOS asks, allow terminal Accessibility access to automate them on a later run.');
+
    }
-   log('  If needed: enable Developer mode → Load unpacked → ⌘⇧G → ⌘V → Enter → Select.\n  For an existing Padkit install, click Reload. Check that you are in the selected profile.\n  Waiting up to two minutes for the extension to confirm it loaded… (Ctrl+C stops waiting)');
+   log('  One Padkit extension handles all sites in this profile.\n  First install: enable Developer mode → Load unpacked → ⌘⇧G → ⌘V → Enter → Select.\n  For an existing Padkit install, click Reload. Check that you are in the selected profile.\n  Waiting up to two minutes for the extension to confirm it loaded… (Ctrl+C stops waiting)');
    const connected = await receipt.result;
    log(connected ? '  ✓ Padkit connected using this setup configuration. Refresh your site to use it.' : '  No connection confirmed yet. Your setup is saved; finish loading the extension manually or rerun setup.');
    return connected;

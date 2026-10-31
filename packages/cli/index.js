@@ -33,8 +33,8 @@ function generate(target) {
  fs.writeFileSync(path.join(folder, 'config.js'), 'globalThis.PADKIT_CONFIG = ' + JSON.stringify(target) + ';\n');
  return folder;
 }
-function instructions(target, folder) {
- console.log(`\nExtension prepared for ${target.browser} / ${target.profile}:\n${folder}\n\nIn that browser profile, open chrome://extensions, enable Developer mode, and choose Load unpacked. Select the folder above.\nFor updates, click Reload on Padkit and refresh the site.\nThis replaces the old PowerA extension in that profile (same extension ID); keep only one enabled.\nSetup files are ready.`);
+function instructions(target, folder, existing) {
+ console.log(`\n${existing ? 'Updated' : 'Prepared'} Padkit for ${target.browser} / ${target.profile} (${target.sites.length} sites):\n${folder}\n\nOne extension handles every enabled site in this profile.\n${existing ? 'If Padkit is already installed, click Reload on its existing card, then refresh your site. No new extension is needed.' : 'Open chrome://extensions in this profile, enable Developer mode, choose Load unpacked, and select the folder above.'}\nIf this is your first install, use Load unpacked once. The older PowerA extension shares this ID; keep only one enabled.`);
 }
 async function main() {
  if (command === 'help' || command === '--help') { console.log('padkit setup [--browser NAME] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera] [--no-open | --install]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and generated extensions stay in .local (or PADKIT_HOME).'); return; }
@@ -74,6 +74,7 @@ async function main() {
      console.log('Removed toolkit configuration. Remove Padkit in that browser profile’s extensions page. Shared PowerA service retained.'); return;
    }
    if (command !== 'setup' && !config.targets[id]) throw new Error('Run setup for this browser/profile first.');
+   const existing = Boolean(config.targets[id]);
    const target = config.targets[id] ?? { browser, profile, sites: [], preset: 'gamepad', powera: false };
    if (command === 'setup') {
      target.preset = (option('preset') ?? (interactive ? await select('Controls', [{value:'gamepad', label:'Gamepad — use the site’s own controls'}, {value:'navigation', label:'Navigation — scroll, focus and activate'}], target.preset) : target.preset));
@@ -84,7 +85,7 @@ async function main() {
    if (value) { const site = siteOrigin(value); target.sites = command === 'remove' ? target.sites.filter(s => s !== site) : [...new Set([...target.sites, site])]; }
    else if (command !== 'setup') throw new Error('Provide a site URL.');
    config.targets[id] = target;
-   const folder = generate(target); save(config); instructions(target, folder);
+   const folder = generate(target); save(config); instructions(target, folder, existing);
    if (command === 'setup' && !args.includes('--no-open') && (interactive || args.includes('--install'))) {
      const app = (installed.length ? installed : discoverBrowsers()).find(b => b.id === browser);
      if (app) await assistInstall(target, folder, app);
