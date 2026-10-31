@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8"><title>Padkit SDK test</title>
+<h1>Padkit controller test</h1>
+<p>Connect a controller, focus this page and press a button. With Padkit enabled here, its popup should say “Handled by this app.”</p>
+<button id="dispose">Release SDK ownership</button>
+<pre id="output">Waiting for controller…</pre>
+<script type="module">
+import { createController } from '../packages/sdk/index.js';
+const controller = createController({ onFrame(pads) { document.querySelector('#output').textContent = JSON.stringify(pads, null, 2); } });
+document.querySelector('#dispose').onclick = () => controller.dispose();
+window.addEventListener('pagehide', () => controller.dispose());
+</script>

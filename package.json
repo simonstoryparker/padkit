@@ -1,0 +1,20 @@
+{
+  "name": "@simonstoryparker/padkit",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "padkit": "packages/cli/index.js"
+  },
+  "exports": {
+    ".": "./packages/sdk/index.js",
+    "./core": "./packages/core/index.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js && node native/tests/test-gamepad.cjs",
+    "setup": "node packages/cli/index.js setup"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

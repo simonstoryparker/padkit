@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Padkit",
+  "version": "0.1.0",
+  "description": "Controller support for explicitly configured sites.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAweN/jflVgFMp8+QzHqQGBjWE6DLf5nCrV+Dt0ds6lDMneLJw6mhD7f4USOFr0m1I5yABdOFI0GwwDiHHNJYH+uEjod/3mpOnRldLpa/1NJrc0AosoOXfkJeUCMsEvU6DhmW6jC4BdxID41jY4hI0rCbkkOWYZc08DVwTAGElDoi3dTjFD0QvzbSxBkg2jWok3MCEXh+qIR1wLj1pYsY+QDx7AI55bu9GCSY3HBKG6nFI5SeSPVBNbofETUQajdPTFQ1uCIEvkrwiehNzH2JV5fUEUHt3YHYYVYyCsbTtypiy+tqYJwfRWUak3ex434bP8UNH6b+AMvZLNh5lZovlLwIDAQAB",
+  "permissions": [
+    "nativeMessaging",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.firstroboticsim.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.firstroboticsim.com/*"
+      ],
+      "js": [
+        "config.js",
+        "core.js",
+        "gamepad.js",
+        "navigation.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*.firstroboticsim.com/*"
+      ],
+      "js": [
+        "config.js",
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_title": "Padkit",
+    "default_popup": "popup.html"
+  }
+}

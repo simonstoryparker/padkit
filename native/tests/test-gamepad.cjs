@@ -1,0 +1,35 @@
+const vm = require('node:vm');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const handlers = new Map(), events = [];
+let physical = [null, { id: 'Existing controller', index: 1 }];
+const window = { addEventListener(type, callback) { if (!handlers.has(type)) handlers.set(type, []); handlers.get(type).push(callback); }, dispatchEvent(event) { events.push(event); for (const callback of handlers.get(event.type) || []) callback(event); } };
+const navigator = { getGamepads() { assert.equal(this, navigator); return physical; } };
+let owner = null;
+const context = vm.createContext({ PADKIT_CONFIG: {powera: true}, document: {documentElement: {getAttribute: () => owner}}, window, navigator, Event: class { constructor(type) { this.type = type; } }, location: { origin: 'https://crescendo.firstroboticsim.com' }, performance: { now: () => 123 } });
+const source = fs.readFileSync(__dirname + '/../../extension/gamepad.js', 'utf8');
+vm.runInContext(source, context);
+const send = (state, origin='https://crescendo.firstroboticsim.com', source=window) => {
+  for (const callback of handlers.get('message')) callback({ source, origin, data: { channel: 'powera-gamepad-v1', state } });
+};
+const state = { connected: true, axes: [-1, 1, .25, -.5], buttons: Array.from({ length: 17 }, (_, i) => i === 0 ? 1 : i === 6 ? .25 : 0) };
+send(state, 'https://wrong.example'); assert.equal(navigator.getGamepads()[0], null);
+send(state, undefined, {}); assert.equal(navigator.getGamepads()[0], null);
+send(state);
+const pad = navigator.getGamepads()[0];
+assert.equal(pad.index, 0); assert.equal(pad.mapping, 'standard');
+assert.equal(pad.axes[0], -1); assert.equal(pad.axes[1], 1);
+assert.equal(pad.buttons[0].pressed, true); assert.equal(pad.buttons[6].value, .25); assert.equal(pad.buttons[6].pressed, false);
+assert.equal(navigator.getGamepads()[1].id, 'Existing controller');
+assert.equal(events.filter(e => e.type === 'gamepadconnected').length, 1);
+send({ ...state, axes: [NaN, 0, 0, 0] }); assert.equal(pad.axes[0], -1);
+vm.runInContext(source, context); assert.equal(handlers.get('message').length, 1);
+send({ connected: false }); assert.equal(navigator.getGamepads()[0], null); assert.equal(pad.connected, false); assert.equal(pad.buttons[0].value, 0);
+assert.equal(events.filter(e => e.type === 'gamepaddisconnected').length, 1);
+send(state);
+physical[0] = { id: 'New physical controller', index: 0 };
+assert.equal(navigator.getGamepads()[0].id, 'New physical controller');
+send(state); assert.equal(navigator.getGamepads()[2].mapping, 'standard');
+console.log('PASS: browser axes/buttons, events, invalid messages, duplicate loading, disconnect clearing, and physical controller coexistence.');
+
+physical = [null]; owner = "native"; send(state); assert.equal(navigator.getGamepads()[0], null); owner = "gamepad"; send(state); assert.equal(navigator.getGamepads()[0].connected, true);
