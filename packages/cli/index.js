@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { createInterface } from 'node:readline/promises';
+import { browsers, discoverBrowsers, profiles } from './browsers.js';
+import { select, validatedSite } from './prompts.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const stateDir = process.env.PADKIT_HOME || path.join(root, '.local');
 const configFile = path.join(stateDir, 'config.json');
@@ -11,15 +12,13 @@ const args = process.argv.slice(2);
 const command = args.shift() || 'help';
 function option(name, fallback) { const i = args.indexOf('--' + name); return i < 0 ? fallback : args[i + 1]; }
 function readConfig() { return fs.existsSync(configFile) ? JSON.parse(fs.readFileSync(configFile, 'utf8')) : { targets: {} }; }
-const browsers = {
- chrome: { app: 'Google Chrome', folder: 'Google/Chrome' },
- arc: { app: 'Arc', folder: 'Arc/User Data' },
- dia: { app: 'Dia', folder: 'Dia/User Data' },
-};
-export function siteOrigin(value) { const u = new URL(value); if (!['http:', 'https:'].includes(u.protocol) || u.username || u.password) throw new Error('Use an HTTP(S) URL without credentials.'); return u.origin; }
-function profiles(browser) {
- const base = path.join(os.homedir(), 'Library/Application Support', browsers[browser].folder);
- try { const local = JSON.parse(fs.readFileSync(path.join(base, 'Local State'), 'utf8')); return Object.entries(local.profile?.info_cache ?? {}).map(([directory, p]) => ({ directory, name: p.name ?? directory })); } catch { return []; }
+export function siteOrigin(value) {
+ const input = value.trim();
+ if (!input || /\s/.test(input) || input.includes('\\')) throw new Error('Enter a domain or HTTP(S) URL.');
+ const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(input) && !/^(localhost|[a-z0-9.-]+\.[a-z]+):\d+(?:[/?#]|$)/i.test(input);
+ const u = new URL(hasScheme ? input : 'https://' + input);
+ if (!['http:', 'https:'].includes(u.protocol) || u.username || u.password || !u.hostname || (!u.hostname.includes('.') && u.hostname !== 'localhost' && !u.hostname.startsWith('['))) throw new Error('Use a domain or HTTP(S) URL without credentials.');
+ return u.origin;
 }
 function save(config) { fs.mkdirSync(stateDir, { recursive: true }); fs.writeFileSync(configFile + '.tmp', JSON.stringify(config, null, 2)); fs.renameSync(configFile + '.tmp', configFile); }
 function generate(target) {
@@ -37,8 +36,8 @@ function instructions(target, folder) {
  console.log(`\nExtension prepared for ${target.browser} / ${target.profile}:\n${folder}\n\nIn that browser profile, open chrome://extensions, enable Developer mode, and choose Load unpacked. Select the folder above.\nFor updates, click Reload on Padkit and refresh the site.\nThis replaces the old PowerA extension in that profile (same extension ID); keep only one enabled.\nNo browser was launched or profile edited.`);
 }
 async function main() {
- if (command === 'help' || command === '--help') { console.log('padkit setup [--browser chrome|arc|dia] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and generated extensions stay in .local (or PADKIT_HOME).'); return; }
- if (command === 'browsers') { for (const name of Object.keys(browsers)) console.log(name, JSON.stringify(profiles(name))); return; }
+ if (command === 'help' || command === '--help') { console.log('padkit setup [--browser NAME] [--profile Default] [--site URL] [--preset gamepad|navigation] [--powera]\npadkit browsers\npadkit add URL [--browser NAME --profile DIR]\npadkit remove URL [--browser NAME --profile DIR]\npadkit status\npadkit doctor\npadkit uninstall [--browser NAME --profile DIR]\n\nNode 20+, macOS browser discovery. Setup is interactive when flags are omitted.\nConfigurations and generated extensions stay in .local (or PADKIT_HOME).'); return; }
+ if (command === 'browsers') { for (const b of discoverBrowsers()) console.log(`${b.app} (${b.id})${b.supported ? '' : ' — extension not supported'}`, b.supported ? profiles(b.id).map(p => `${p.name} (${p.directory})`).join(', ') : ''); return; }
  const config = readConfig();
  if (command === 'status') { console.log(JSON.stringify(config, null, 2)); return; }
  if (command === 'doctor') {
@@ -52,12 +51,20 @@ async function main() {
  }
  if (!['setup', 'add', 'remove', 'uninstall'].includes(command)) throw new Error('Unknown command. Run padkit --help.');
  const interactive = command === 'setup' && process.stdin.isTTY;
- const rl = interactive ? createInterface({ input: process.stdin, output: process.stdout }) : null;
- try {
-   const browser = (option('browser') ?? (interactive ? (await rl.question('Browser [chrome/arc/dia] (chrome): ')).trim() || 'chrome' : 'chrome'));
-   if (!browsers[browser]) throw new Error('Choose chrome, arc, or dia.');
-   if (interactive) console.log('Detected profiles:', profiles(browser));
-   const profile = (option('profile') ?? (interactive ? (await rl.question('Profile directory (Default): ')).trim() || 'Default' : 'Default'));
+ if (interactive) console.log('\n  PADKIT  /  Controller setup\n');
+ {
+   const installed = interactive ? discoverBrowsers() : [];
+   if (interactive) {
+     const unsupported = installed.filter(b => !b.supported);
+     if (unsupported.length) console.log('  Detected but not supported by this extension: ' + unsupported.map(b => b.app).join(', ') + '\n');
+     if (!installed.some(b => b.supported)) throw new Error('No supported browsers found in Applications. Install a Chromium browser or use --browser for a custom installation.');
+   }
+   const browser = option('browser') ?? (interactive ? await select('Browser', installed.filter(b => b.supported).map(b => ({ value: b.id, label: b.app }))) : 'chrome');
+   if (!browsers[browser]?.folder) throw new Error('Unsupported browser. Run padkit browsers to see installed browsers.');
+   if (interactive && !installed.some(b => b.id === browser)) throw new Error('That browser was not found in Applications.');
+   const availableProfiles = interactive ? profiles(browser) : [];
+   if (interactive && !availableProfiles.length && !option('profile')) throw new Error('No profiles found. Open this browser once to create a profile, then rerun setup.');
+   const profile = option('profile') ?? (interactive ? await select('Profile', availableProfiles.map(p => ({ value: p.directory, label: `${p.name} · ${p.directory}` }))) : 'Default');
    if (!/^(Default|Profile \d+)$/.test(profile)) throw new Error('Use a profile directory such as Default or Profile 1.');
    const id = browser + '/' + profile;
    if (command === 'uninstall') {
@@ -68,16 +75,16 @@ async function main() {
    if (command !== 'setup' && !config.targets[id]) throw new Error('Run setup for this browser/profile first.');
    const target = config.targets[id] ?? { browser, profile, sites: [], preset: 'gamepad', powera: false };
    if (command === 'setup') {
-     target.preset = (option('preset') ?? (interactive ? (await rl.question('Preset [gamepad/navigation] (gamepad): ')).trim() || 'gamepad' : target.preset));
+     target.preset = (option('preset') ?? (interactive ? await select('Controls', [{value:'gamepad', label:'Gamepad — use the site’s own controls'}, {value:'navigation', label:'Navigation — scroll, focus and activate'}], target.preset) : target.preset));
      if (!['gamepad', 'navigation'].includes(target.preset)) throw new Error('Choose gamepad or navigation.');
-     target.powera = args.includes('--powera') || (!args.includes('--no-powera') && (interactive ? /^y/i.test(await rl.question('Use the existing PowerA USB bridge? [y/N]: ')) : target.powera));
+     target.powera = args.includes('--powera') || (!args.includes('--no-powera') && (interactive ? await select('PowerA USB bridge', [{ value: true, label: 'Use existing bridge — PowerA FUSION Pro 2' }, { value: false, label: 'Off — use browser-recognized controllers' }], target.powera) : target.powera));
    }
-   const value = command === 'setup' ? (option('site') ?? (interactive ? await rl.question('Site URL (blank to leave unchanged): ') : '')) : args[0];
+   const value = command === 'setup' ? (interactive ? await validatedSite(siteOrigin, option('site')) : option('site', '')) : args[0];
    if (value) { const site = siteOrigin(value); target.sites = command === 'remove' ? target.sites.filter(s => s !== site) : [...new Set([...target.sites, site])]; }
    else if (command !== 'setup') throw new Error('Provide a site URL.');
    config.targets[id] = target;
    const folder = generate(target); save(config); instructions(target, folder);
    if (target.powera) console.log('PowerA requires the existing local.powera.browser native host and shared reader. Run doctor. Arc used Chrome’s host registry in the previous working setup; Dia must be verified.');
- } finally { rl?.close(); }
+ }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(e => { console.error(e.message); process.exitCode = 1; });

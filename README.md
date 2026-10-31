@@ -22,6 +22,10 @@ node packages/cli/index.js setup
 node packages/cli/index.js doctor
 ```
 
+Interactive setup uses ↑/↓ and Enter for browser, profile, controls and bridge selection. Profiles display their friendly names. Invalid site input stays in the wizard and asks again; bare domains such as `frsim.com` become `https://frsim.com`. Explicit HTTP URLs are preserved for local development.
+
+Browser discovery scans system and user Applications folders (including nested folders), using installed app bundles rather than leftover profile data. The picker includes installed, supported Chromium browsers only. Detected browsers without extension support, such as Safari and Firefox, are reported separately. Chrome variants, Arc, Dia, Brave, Edge, Vivaldi, Chromium and Opera are recognized; actual extension/native-host compatibility still requires testing per browser. Open a browser once if it has no discoverable profiles. Noninteractive flags remain available.
+
 For the existing PowerA and Arc setup, an explicit example is:
 
 ```sh

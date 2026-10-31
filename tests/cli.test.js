@@ -20,3 +20,30 @@ test('setup, repeat setup, add/remove and uninstall remain profile scoped', () =
  assert.deepEqual(JSON.parse(readFileSync(path.join(home, 'config.json'))).targets, {});
  } finally { rmSync(home, { recursive: true }); }
 });
+
+test('bare domains normalize to HTTPS and malformed input is rejected', () => {
+ for (const value of ['frsim.com', ' frsim.com ', 'frsim.com/path']) assert.equal(siteOrigin(value), 'https://frsim.com');
+ assert.equal(siteOrigin('localhost:5173'), 'https://localhost:5173');
+ assert.equal(siteOrigin('http://localhost:5173'), 'http://localhost:5173');
+ for (const value of ['not a url', 'nope', 'https://', 'javascript:alert(1)', 'ftp://example.com', 'https://user:pass@example.com']) assert.throws(() => siteOrigin(value));
+});
+
+test('interactive URL validation retries without losing the setup', async () => {
+ const { validatedSite } = await import('../packages/cli/prompts.js');
+ const answers = ['bad input', 'frsim.com']; let errors = 0;
+ assert.equal(await validatedSite(siteOrigin, 'https://', async () => answers.shift(), () => errors++), 'https://frsim.com');
+ assert.equal(errors, 2);
+ assert.equal(await validatedSite(siteOrigin, '', async () => { throw Error('Should not ask'); }), '');
+});
+
+test('browser discovery lists installed bundles only, including user Applications', async () => {
+ const { discoverBrowsers } = await import('../packages/cli/browsers.js');
+ const { mkdirSync } = await import('node:fs');
+ const home = mkdtempSync(path.join(os.tmpdir(), 'padkit-browsers-'));
+ try {
+  for (const folder of ['Applications/Dia.app', 'Applications/Safari.app', 'UserApps/Arc.app', 'Applications/Unrelated.app']) mkdirSync(path.join(home, folder), { recursive: true });
+  const found = discoverBrowsers({ roots: [path.join(home, 'Applications'), path.join(home, 'UserApps')], inspect: () => null });
+  assert.deepEqual(found.map(b => b.id), ['arc', 'dia', 'safari']);
+  assert.deepEqual(found.filter(b => b.supported).map(b => b.id), ['arc', 'dia']);
+ } finally { rmSync(home, { recursive: true }); }
+});
